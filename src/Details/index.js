@@ -1,30 +1,68 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useHistory } from "react-router-dom";
 import { DetailsLayout } from "./components/DetailsLayout";
 import { ImageSection } from "./components/ImageSection";
 import { ThumbnailSection } from "./components/ThumbnailSection";
 import { MetaSection } from "./components/MetaSection";
+import Buttons from "./components/Button/Buttons";
+import { Loader } from "../common/Loader";
 
 export function Details() {
   const { id } = useParams();
-  const [data, setData] = useState(null);
+  const [detailPagId, setDetailPagId] = useState(Number(id));
   const [selectedImage, setSelectedImage] = useState("");
+  const history = useHistory();
 
-  useEffect(() => {
-    fetch(`https://pokeapi.co/api/v2/pokemon/${id}`)
-      .then((res) => res.json())
-      .then((pokemonData) => {
-        Promise.all(pokemonData.abilities.map((a) => fetch(a.ability.url)))
-          .then((responses) => Promise.all(responses.map((res) => res.json())))
-          .then((abilityData) =>
-            setData({ ...pokemonData, abilities: abilityData })
-          );
-      });
-  }, [id]);
+  const handleClickPrev = () => {
+    history.push(`/pokemon/${detailPagId}`);
+    if (detailPagId > 1) {
+      setSelectedImage("");
+      setDetailPagId(detailPagId - 1);
+    }
+  };
+
+  const handleClickNext = () => {
+    setSelectedImage("");
+    console.log("handleClickNext", detailPagId);
+    setDetailPagId(detailPagId + 1);
+    history.push(`/pokemon/${detailPagId}`);
+  };
+
+  const useData = () => {
+    const [data, setData] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+      setIsLoading(true);
+      fetch(`https://pokeapi.co/api/v2/pokemon/${detailPagId}`)
+        .then((res) => res.json())
+        .then((pokemonData) => {
+          Promise.all(pokemonData.abilities.map((a) => fetch(a.ability.url)))
+            .then((responses) =>
+              Promise.all(responses.map((res) => res.json()))
+            )
+            .then((abilityData) => {
+              setData({ ...pokemonData, abilities: abilityData });
+              setIsLoading(false);
+            });
+        });
+    }, [id, detailPagId]);
+
+    return {
+      data,
+      isLoading,
+    };
+  };
+
+  const { data, isLoading } = useData();
 
   if (!data) {
     return <span>Loading</span>;
+  }
+
+  if (isLoading) {
+    return <Loader />;
   }
 
   return (
@@ -43,6 +81,10 @@ export function Details() {
         thumbnailTwoSrc={data.sprites.other.dream_world.front_default}
         thumbnailThreeSrc={data.sprites.front_default}
         thumbnailFourSrc={data.sprites.back_default}
+      />
+      <Buttons
+        handleClickPrev={handleClickPrev}
+        handleClickNext={handleClickNext}
       />
 
       <MetaSection
